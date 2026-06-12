@@ -1,0 +1,18 @@
+[package]
+name = "gpm-pcie-dashboard-rust"
+version = "0.1.0"
+edition = "2024"
+description = "TUI dashboard for per-GPU NVML GPM PCIe TX/RX traffic"
+license = "MIT"
+repository = "https://github.com/sanshanya/gpm-pcie-dashboard-rust"
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+crossterm = { version = "0.29.0", features = ["event-stream"] }
+futures = "0.3"
+ratatui = { version = "0.29.0", features = ["crossterm"] }
+tokio = { version = "1", features = ["full"] }
+
+[build-dependencies]
+bindgen = "0.72"
