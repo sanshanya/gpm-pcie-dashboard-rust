@@ -4,8 +4,8 @@ fn main() {
     println!("cargo:rerun-if-env-changed=NVML_INCLUDE_DIR");
     println!("cargo:rerun-if-env-changed=NVML_LIB_DIR");
 
-    if let Ok(lib_dir) = env::var("NVML_LIB_DIR") {
-        println!("cargo:rustc-link-search=native={lib_dir}");
+    for lib_dir in find_library_dirs() {
+        println!("cargo:rustc-link-search=native={}", lib_dir.display());
     }
     println!("cargo:rustc-link-lib=dylib=nvidia-ml");
 
@@ -50,4 +50,26 @@ fn find_include_dir() -> Option<PathBuf> {
     .iter()
     .map(PathBuf::from)
     .find(|p| p.join("nvml.h").exists())
+}
+
+fn find_library_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+
+    if let Ok(dir) = env::var("NVML_LIB_DIR") {
+        dirs.push(PathBuf::from(dir));
+    }
+
+    for candidate in [
+        "/usr/local/cuda/lib64/stubs",
+        "/usr/local/cuda/targets/x86_64-linux/lib/stubs",
+        "/usr/lib/x86_64-linux-gnu",
+        "/usr/lib64",
+    ] {
+        let path = PathBuf::from(candidate);
+        if path.exists() {
+            dirs.push(path);
+        }
+    }
+
+    dirs
 }
