@@ -28,19 +28,16 @@ jobs:
       - name: Format sources
         env:
           NVML_INCLUDE_DIR: /usr/local/cuda/include
-          NVML_LIB_DIR: /usr/local/cuda/lib64/stubs
         run: cargo fmt
 
       - name: Check build
         env:
           NVML_INCLUDE_DIR: /usr/local/cuda/include
-          NVML_LIB_DIR: /usr/local/cuda/lib64/stubs
         run: cargo check
 
       - name: Build release binary
         env:
           NVML_INCLUDE_DIR: /usr/local/cuda/include
-          NVML_LIB_DIR: /usr/local/cuda/lib64/stubs
         run: |
           cargo build --release
           mkdir -p dist
