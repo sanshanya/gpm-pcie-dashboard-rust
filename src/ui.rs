@@ -1,7 +1,10 @@
 use crate::app::{App, GpuHistory, ViewMode};
 use ratatui::prelude::*;
 use ratatui::symbols;
-use ratatui::widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Row, Scrollbar, ScrollbarOrientation, Table};
+use ratatui::widgets::{
+    Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Row, Scrollbar,
+    ScrollbarOrientation, Table,
+};
 
 pub fn render(app: &mut App, frame: &mut Frame) {
     let root = Layout::default()
@@ -44,7 +47,7 @@ fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
 }
 
 fn render_numbers(app: &mut App, frame: &mut Frame, area: Rect) {
-    let data = app.histories.read().unwrap();
+    let data = snapshot_histories(app);
 
     let rows = data.iter().skip(app.vertical_scroll).map(|g| {
         let total = if g.tx_mib_s.is_finite() && g.rx_mib_s.is_finite() {
@@ -84,8 +87,16 @@ fn render_numbers(app: &mut App, frame: &mut Frame, area: Rect) {
         ],
     )
     .header(
-        Row::new(vec!["GPU", "Name", "PCI Bus ID", "TX from GPU", "RX to GPU", "TX+RX", "Status"])
-            .style(Style::default().fg(Color::Yellow).bold()),
+        Row::new(vec![
+            "GPU",
+            "Name",
+            "PCI Bus ID",
+            "TX from GPU",
+            "RX to GPU",
+            "TX+RX",
+            "Status",
+        ])
+        .style(Style::default().fg(Color::Yellow).bold()),
     )
     .block(
         Block::default()
@@ -105,7 +116,7 @@ fn render_numbers(app: &mut App, frame: &mut Frame, area: Rect) {
 fn render_charts(app: &mut App, frame: &mut Frame, area: Rect) {
     const CHART_HEIGHT: u16 = 12;
 
-    let data = app.histories.read().unwrap();
+    let data = snapshot_histories(app);
 
     if data.is_empty() {
         frame.render_widget(
@@ -156,7 +167,11 @@ fn render_single_chart(frame: &mut Frame, area: Rect, g: &GpuHistory) {
     let x_min = g.history.front().map(|p| p.t).unwrap_or(0.0);
     let x_max = g.history.back().map(|p| p.t).unwrap_or(1.0).max(x_min + 1.0);
 
-    let max_y = tx.iter().chain(rx.iter()).map(|(_, y)| *y).fold(0.0_f64, f64::max);
+    let max_y = tx
+        .iter()
+        .chain(rx.iter())
+        .map(|(_, y)| *y)
+        .fold(0.0_f64, f64::max);
     let y_max = if max_y < 1024.0 { 1024.0 } else { max_y * 1.15 };
 
     let datasets = vec![
@@ -190,16 +205,26 @@ fn render_single_chart(frame: &mut Frame, area: Rect, g: &GpuHistory) {
             Axis::default()
                 .style(Style::default().fg(Color::DarkGray))
                 .bounds([x_min, x_max])
-                .labels(vec![Span::raw(format!("{:.1}s", x_min)), Span::raw(format!("{:.1}s", x_max))]),
+                .labels(vec![
+                    Span::raw(format!("{:.1}s", x_min)),
+                    Span::raw(format!("{:.1}s", x_max)),
+                ]),
         )
         .y_axis(
             Axis::default()
                 .style(Style::default().fg(Color::DarkGray))
                 .bounds([0.0, y_max])
-                .labels(vec![Span::raw("0"), Span::styled(fmt_bw(y_max), Style::default().bold())]),
+                .labels(vec![
+                    Span::raw("0"),
+                    Span::styled(fmt_bw(y_max), Style::default().bold()),
+                ]),
         );
 
     frame.render_widget(chart, area);
+}
+
+fn snapshot_histories(app: &App) -> Vec<GpuHistory> {
+    app.histories.read().map(|h| h.clone()).unwrap_or_default()
 }
 
 fn fmt_bw(mib_s: f64) -> String {
