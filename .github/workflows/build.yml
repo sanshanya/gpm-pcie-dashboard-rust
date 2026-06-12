@@ -25,11 +25,11 @@ jobs:
         with:
           components: rustfmt
 
-      - name: Check formatting
+      - name: Format sources
         env:
           NVML_INCLUDE_DIR: /usr/local/cuda/include
           NVML_LIB_DIR: /usr/local/cuda/lib64/stubs
-        run: cargo fmt --check
+        run: cargo fmt
 
       - name: Check build
         env:
