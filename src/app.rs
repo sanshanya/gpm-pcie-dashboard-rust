@@ -1,5 +1,5 @@
 use crate::handler::handle_key_event;
-use crate::nvml_gpm::{GpmDevice, Nvml};
+use crate::nvml_gpm::Nvml;
 use crate::tui::Tui;
 use crate::ui;
 use crate::Args;
@@ -8,7 +8,10 @@ use crossterm::event::{Event, EventStream};
 use futures::StreamExt;
 use ratatui::widgets::ScrollbarState;
 use std::collections::VecDeque;
-use std::sync::{atomic::{AtomicBool, Ordering}, Arc, RwLock};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, RwLock,
+};
 use std::time::{Duration, Instant};
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -57,7 +60,11 @@ impl GpuHistory {
             self.history.pop_front();
         }
 
-        self.history.push_back(SamplePoint { t, tx_mib_s, rx_mib_s });
+        self.history.push_back(SamplePoint {
+            t,
+            tx_mib_s,
+            rx_mib_s,
+        });
     }
 }
 
@@ -214,7 +221,7 @@ fn sampler_loop(
     let mut init_failures = Vec::new();
 
     for index in indices {
-        match GpmDevice::new(index) {
+        match nvml.open_device(index) {
             Ok(dev) => devices.push(dev),
             Err(e) => init_failures.push(GpuHistory {
                 index,
