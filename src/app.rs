@@ -276,6 +276,7 @@ fn sampler_loop(
         }
     }
 
+    drop(devices);
     drop(nvml);
 }
 
