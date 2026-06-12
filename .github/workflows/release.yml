@@ -1,0 +1,42 @@
+name: Release Binary Executable
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build and Release Executable
+    runs-on: ubuntu-latest
+    container:
+      image: nvidia/cuda:12.8.1-devel-ubuntu22.04
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git build-essential clang libclang-dev pkg-config tar xz-utils
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release binary
+        env:
+          NVML_INCLUDE_DIR: /usr/local/cuda/include
+          NVML_LIB_DIR: /usr/local/cuda/lib64/stubs
+        run: |
+          cargo build --release
+          mkdir -p dist
+          cp target/release/gpm-pcie-dashboard-rust dist/gpm-pcie-dashboard-rust-x86_64-linux
+          tar -C dist -czf gpm-pcie-dashboard-rust-x86_64-linux.tar.gz gpm-pcie-dashboard-rust-x86_64-linux
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: gpm-pcie-dashboard-rust-x86_64-linux.tar.gz
