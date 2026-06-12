@@ -20,6 +20,8 @@ const NVML_FEATURE_ENABLED_CODE: c_uint = 1;
 // NVML GPM enum values. They are enum constants in nvml.h, not preprocessor macros.
 const GPM_PCIE_TX_PER_SEC: c_uint = 20;
 const GPM_PCIE_RX_PER_SEC: c_uint = 21;
+const GPM_SUPPORT_STRUCT_VERSION: c_uint = 1;
+const GPM_METRICS_GET_STRUCT_VERSION: c_uint = 1;
 
 type NvmlInitV2 = unsafe extern "C" fn() -> ffi::nvmlReturn_t;
 type NvmlShutdown = unsafe extern "C" fn() -> ffi::nvmlReturn_t;
@@ -120,6 +122,10 @@ unsafe fn load_symbol<T: Copy>(library: &Library, name: &[u8]) -> Result<T> {
     let symbol: Symbol<T> = unsafe { library.get(name) }
         .with_context(|| format!("failed to load NVML symbol {}", String::from_utf8_lossy(name)))?;
     Ok(*symbol)
+}
+
+fn nvml_struct_version<T>(version: c_uint) -> c_uint {
+    (mem::size_of::<T>() as c_uint) | (version << 24)
 }
 
 pub struct Nvml {
@@ -251,7 +257,9 @@ impl GpmDevice {
             )?;
 
             let mut get: ffi::nvmlGpmMetricsGet_t = mem::zeroed();
-            get.version = ffi::NVML_GPM_METRICS_GET_VERSION;
+            get.version = nvml_struct_version::<ffi::nvmlGpmMetricsGet_t>(
+                GPM_METRICS_GET_STRUCT_VERSION,
+            );
             get.sample1 = self.sample_prev;
             get.sample2 = self.sample_now;
             get.numMetrics = 2;
@@ -319,7 +327,7 @@ fn get_pci_bus_id(lib: &NvmlLib, handle: ffi::nvmlDevice_t) -> Result<String> {
 fn init_gpm(lib: &NvmlLib, handle: ffi::nvmlDevice_t, index: u32) -> Result<()> {
     unsafe {
         let mut support: ffi::nvmlGpmSupport_t = mem::zeroed();
-        support.version = ffi::NVML_GPM_SUPPORT_VERSION;
+        support.version = nvml_struct_version::<ffi::nvmlGpmSupport_t>(GPM_SUPPORT_STRUCT_VERSION);
 
         lib.check(
             (lib.gpm_query_device_support)(handle, &mut support),
