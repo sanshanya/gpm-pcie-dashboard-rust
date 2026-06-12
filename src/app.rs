@@ -8,7 +8,7 @@ use crossterm::event::{Event, EventStream};
 use futures::StreamExt;
 use ratatui::widgets::ScrollbarState;
 use std::collections::VecDeque;
-use std::sync::{Arc, RwLock};
+use std::sync::{atomic::{AtomicBool, Ordering}, Arc, RwLock};
 use std::time::{Duration, Instant};
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -71,6 +71,7 @@ pub struct App {
     pub histories: Arc<RwLock<Vec<GpuHistory>>>,
     pub vertical_scroll: usize,
     pub scroll_state: ScrollbarState,
+    running: Arc<AtomicBool>,
 }
 
 impl App {
@@ -84,13 +85,22 @@ impl App {
 
         let view_mode = parse_view_mode(&args.view)?;
         let histories = Arc::new(RwLock::new(Vec::new()));
+        let running = Arc::new(AtomicBool::new(true));
+
         let selected_gpus = args.gpus.clone();
         let interval_ms = args.interval_ms;
         let history_points = args.history_points;
         let histories_for_task = histories.clone();
+        let running_for_task = running.clone();
 
         tokio::task::spawn_blocking(move || {
-            sampler_loop(selected_gpus, interval_ms, history_points, histories_for_task);
+            sampler_loop(
+                selected_gpus,
+                interval_ms,
+                history_points,
+                histories_for_task,
+                running_for_task,
+            );
         });
 
         Ok(Self {
@@ -103,6 +113,7 @@ impl App {
             histories,
             vertical_scroll: 0,
             scroll_state: ScrollbarState::new(0),
+            running,
         })
     }
 
@@ -126,6 +137,7 @@ impl App {
                 },
             }
         }
+        self.running.store(false, Ordering::SeqCst);
         Ok(())
     }
 
@@ -138,6 +150,7 @@ impl App {
 
     pub fn quit(&mut self) {
         self.should_quit = true;
+        self.running.store(false, Ordering::SeqCst);
     }
 
     pub fn on_up(&mut self) {
@@ -173,6 +186,7 @@ fn sampler_loop(
     interval_ms: u64,
     history_points: usize,
     shared: Arc<RwLock<Vec<GpuHistory>>>,
+    running: Arc<AtomicBool>,
 ) {
     let nvml = match Nvml::init() {
         Ok(n) => n,
@@ -229,10 +243,13 @@ fn sampler_loop(
 
     let start = Instant::now();
 
-    loop {
+    while running.load(Ordering::SeqCst) {
         std::thread::sleep(Duration::from_millis(interval_ms));
-        let t = start.elapsed().as_secs_f64();
+        if !running.load(Ordering::SeqCst) {
+            break;
+        }
 
+        let t = start.elapsed().as_secs_f64();
         let mut data = match shared.write() {
             Ok(d) => d,
             Err(_) => return,
@@ -251,6 +268,8 @@ fn sampler_loop(
             }
         }
     }
+
+    drop(nvml);
 }
 
 fn set_error(shared: &Arc<RwLock<Vec<GpuHistory>>>, status: String) {
