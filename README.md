@@ -20,9 +20,16 @@ Keys:
 - `j/k` or arrow keys: scroll GPUs
 - `q`, `Esc`, or `Ctrl-C`: quit
 
-## Build
+## Build model
 
-The build uses `bindgen` against your installed `nvml.h`, so it matches the actual NVML ABI on your node.
+The build uses `bindgen` against `nvml.h` to generate ABI-compatible Rust types, but it does not link against `libnvidia-ml` at compile time. At runtime, the binary loads `libnvidia-ml.so.1` dynamically from the NVIDIA driver installation.
+
+This gives two useful properties:
+
+- CI can compile in a CUDA devel container using only `nvml.h`.
+- The released binary runs on the target B200/B300/Hopper+ host using that host's real NVIDIA driver NVML library.
+
+## Build
 
 Install requirements on Ubuntu:
 
@@ -35,13 +42,18 @@ Build on a CUDA/NVIDIA node:
 
 ```bash
 export NVML_INCLUDE_DIR=/usr/local/cuda/include
-export NVML_LIB_DIR=/usr/lib/x86_64-linux-gnu
 cargo build --release
 ```
 
 If your `nvml.h` is elsewhere, set `NVML_INCLUDE_DIR` to the directory containing `nvml.h`.
 
 ## Run
+
+Runtime requirements:
+
+- NVIDIA driver installed
+- `libnvidia-ml.so.1` available in the runtime linker path
+- GPU/driver support for NVML GPM
 
 Enable GPM streaming first if needed:
 
